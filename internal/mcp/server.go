@@ -122,6 +122,7 @@ func generateMinecraftSkinHandler(ctx context.Context, request mcp.CallToolReque
 		}
 		SaveTask(&TaskState{TaskID: taskID, OutputPath: path, CompletedParts: completedParts})
 		computePending(completedParts)
+		log.Printf("[mc-ai-skin] 绘画进度: %d/%d 已完成 | 本次绘制: %v | 剩余: %d 个部位", len(completedParts), len(gen.AllParts), completedParts, len(pendingParts))
 	} else {
 		// 续传或查询进度
 		t, ok := GetTask(taskID)
@@ -139,17 +140,22 @@ func generateMinecraftSkinHandler(ctx context.Context, request mcp.CallToolReque
 			if path, err = g.GenMerge(path, colorMap, 64); err != nil {
 				return
 			}
+			var justDrawn []string
 			for k := range colorMap {
 				if !completedSet[k] {
 					completedParts = append(completedParts, k)
 					completedSet[k] = true
+					justDrawn = append(justDrawn, k)
 				}
 			}
 			t.OutputPath = path
 			t.CompletedParts = completedParts
 			SaveTask(t)
+			computePending(completedParts)
+			log.Printf("[mc-ai-skin] 绘画进度: %d/%d 已完成 | 本次绘制: %v | 剩余: %d 个部位", len(completedParts), len(gen.AllParts), justDrawn, len(pendingParts))
+		} else {
+			computePending(completedParts)
 		}
-		computePending(completedParts)
 	}
 
 	resp := toolResponse{
