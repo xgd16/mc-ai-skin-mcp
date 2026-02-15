@@ -1,5 +1,15 @@
 package gen
 
+// AllParts 全部皮肤部位名列表（用于进度追踪与 Agent 分次调用）。
+var AllParts = []string{
+	"head_front", "head_back", "head_top", "head_bottom", "head_right", "head_left",
+	"body_front", "body_back", "body_right", "body_left",
+	"right_arm_front", "right_arm_back", "right_arm_right", "right_arm_left", "right_arm_top", "right_arm_bottom",
+	"left_arm_front", "left_arm_back", "left_arm_right", "left_arm_left", "left_arm_top", "left_arm_bottom",
+	"right_leg_front", "right_leg_back", "right_leg_right", "right_leg_left", "right_leg_top", "right_leg_bottom",
+	"left_leg_front", "left_leg_back", "left_leg_right", "left_leg_left", "left_leg_top", "left_leg_bottom",
+}
+
 // skinMap 存储 Minecraft 皮肤各部位在皮肤贴图上的 UV 起始坐标 (x, y)。
 var skinMap = map[string][2]int{
 	// 头部

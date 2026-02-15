@@ -32,37 +32,54 @@ func NewGenSkin(options *types.GenSkinOptions) *GenSkin {
 //   out string —— 生成图片的实际保存路径
 //   err error  —— 生成或保存图片失败时返回错误，成功为 nil
 func (s *GenSkin) Gen(ColorMap map[string][64][4]uint8, size int) (out string, err error) {
-	// 步骤 1：创建输出文件夹（自动递归创建），获取输出目录绝对路径
-	var path string
-	if path, err = s.createOutputPath(); err != nil {
-		// 创建输出目录失败直接返回
-		return
+	path, err := OutputDir()
+	if err != nil {
+		return "", err
 	}
-
-	// 步骤 2：创建 size×size 的全透明 RGBA 画布
-	img := imaging.New(size, size, color.RGBA{0, 0, 0, 0})
-
-	// 步骤 3：将所有颜色块按部位映射绘制到皮肤贴图的对应位置
-	for k, v := range ColorMap {
-		x, y, err := s.getSkinXYMap(k) // 查找部位 k 在皮肤贴图中的起始坐标
-		if err != nil {
-			return "", err // key 非法直接返回错误，同时返回空路径
-		}
-		s.printColorBlock(x, y, v, img) // 在(x, y)处绘制一个 8×8 颜色块
-	}
-
-	// 步骤 4：拼接输出文件路径和文件名
 	outPath := path + "/" + s.createFileName()
+	return s.GenToPath(ColorMap, size, outPath)
+}
 
-	// 步骤 5：如配置启用则输出保存路径
+// GenToPath 将皮肤贴图生成并保存到指定路径，用于任务化分次调用。
+func (s *GenSkin) GenToPath(ColorMap map[string][64][4]uint8, size int, outPath string) (out string, err error) {
+	img := imaging.New(size, size, color.RGBA{0, 0, 0, 0})
+	for k, v := range ColorMap {
+		x, y, e := s.getSkinXYMap(k)
+		if e != nil {
+			return "", e
+		}
+		s.printColorBlock(x, y, v, img)
+	}
 	if s.options.PrintOutPath {
 		fmt.Printf("save to: %s\n", outPath)
 	}
+	return outPath, imaging.Save(img, outPath)
+}
 
-	// 步骤 6：以 PNG 格式保存图片到目标路径
-	out = outPath
-	err = imaging.Save(img, outPath)
-	return
+// GenMerge 在已有皮肤图像上合并绘制新部位，用于分次调用、避免长时间断连。
+// existingPath 为已存在的皮肤图片路径，colorMap 为本次要绘制的新部位。
+// 返回更新后的保存路径（与 existingPath 相同）。
+func (s *GenSkin) GenMerge(existingPath string, colorMap map[string][64][4]uint8, size int) (out string, err error) {
+	if len(colorMap) == 0 {
+		return existingPath, nil
+	}
+	img, err := imaging.Open(existingPath)
+	if err != nil {
+		return "", err
+	}
+	nrgba := imaging.Clone(img)
+	for k, v := range colorMap {
+		x, y, e := s.getSkinXYMap(k)
+		if e != nil {
+			return "", e
+		}
+		s.printColorBlock(x, y, v, nrgba)
+	}
+	if s.options.PrintOutPath {
+		fmt.Printf("merge save to: %s\n", existingPath)
+	}
+	err = imaging.Save(nrgba, existingPath)
+	return existingPath, err
 }
 
 // getSkinXYMap 用于查询指定皮肤部位的 UV 起始坐标（x, y）。
@@ -123,24 +140,17 @@ func (s *GenSkin) printColorBlock(x, y int, arr [64][4]uint8, img *image.NRGBA) 
 	}
 }
 
-// createOutputPath 创建并返回输出路径 output 目录的绝对路径。
-// 若 output 目录不存在，则自动创建。
-// 返回值：
-//
-//	path string —— 输出目录的绝对路径
-//	err  error   —— 目录创建出错时返回相应 error，否则为 nil
-func (s *GenSkin) createOutputPath() (path string, err error) {
-	path = gfile.Pwd() + "/output" // 获取当前工作目录并拼接 output 文件夹路径
-	// 如果 output 目录不存在，则创建该目录
+// OutputDir 返回 output 目录绝对路径并确保存在，供 MCP 任务化调用使用。
+func OutputDir() (string, error) {
+	path := gfile.Pwd() + "/output"
 	if !gfile.Exists(path) {
-		if err = gfile.Mkdir(gfile.Pwd() + "/output"); err != nil {
-			// 目录创建失败，返回错误
-			return
+		if err := gfile.Mkdir(path); err != nil {
+			return "", err
 		}
 	}
-	// 正常返回 output 目录路径，err 为 nil
-	return
+	return path, nil
 }
+
 
 // 创建文件名
 func (s *GenSkin) createFileName() string {
