@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace/bin outputs
+bin/
+
+# Project outputs
+output/
+mc-ai-skin
+
